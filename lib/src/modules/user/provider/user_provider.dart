@@ -1,18 +1,36 @@
-import 'dart:async';
-import 'package:basic_structure/src/modules/user/api/user_api.dart';
-import 'package:basic_structure/src/modules/user/model/user_model.dart';
+import 'package:basic_structure/src/services/api_client_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../api/user_api.dart';
+import '../model/user_model.dart';
 
 class AsyncUserNotifier extends AsyncNotifier<List<UserModel>> {
-  Future<List<UserModel>> getUser() async {
-    return await getUserList() ?? [UserModel.defaultUser()];
-  }
+  late final UserApi _userApi;
 
   @override
   Future<List<UserModel>> build() async {
-    return await getUser();
+    _userApi = ref.read(userApiProvider); // Initialize the API service
+    return await _userApi.getUserList();  // Fetch and return user list
+  }
+
+  Future<void> refresh() async {
+    state = const AsyncValue.loading(); // Set loading state
+    try {
+      final users = await _userApi.getUserList(); // Fetch fresh data
+      state = AsyncValue.data(users); // Update with new data
+    } catch (e, stack) {
+      state = AsyncValue.error(e, stack); // Handle errors
+    }
   }
 }
 
+
+// Provider for AsyncNotifier
 final asyncUserProvider = AsyncNotifierProvider<AsyncUserNotifier, List<UserModel>>(
-        () => AsyncUserNotifier());
+      () => AsyncUserNotifier(),
+);
+
+// Provider for UserApi
+final userApiProvider = Provider<UserApi>((ref) {
+  final apiClient = ref.read(apiClientProvider); // Ensure this is defined
+  return UserApi(apiClient);
+});
